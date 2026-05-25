@@ -26,7 +26,17 @@ pub struct HWAesEncoder {}
 
 fn expand_key_128<const RCON: i32>(prev_key: __m128i) -> __m128i {
     unsafe {
-        let assist =  _mm_aeskeygenassist_si128::<RCON>(prev_key);
+        // _mm_aeskegenassist_si128 doesnt get inlined?
+        // let assist =  _mm_aeskeygenassist_si128::<RCON>(prev_key);
+
+        let assist: __m128i;
+        asm!(
+            "AESKEYGENASSIST {assist}, {prev}, {round}",
+            assist = out(xmm_reg) assist,
+            prev = in(xmm_reg) prev_key,
+            round = const RCON,
+        );
+
         let temp_assist =  _mm_shuffle_epi32::<0xFF>(assist);
         
         let mut next_key = prev_key;
