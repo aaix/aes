@@ -1,8 +1,8 @@
 use std::{io, marker::PhantomData};
 
-use crate::{modes::traits::BlockCipherEncoderMode, traits::{AESEncoder, Blockable}};
+use crate::{modes::{helpers::PartialBlockHelper, traits::{BlockCipherDecoderMode, BlockCipherEncoderMode}}, traits::{AESDecoder, AESEncoder, Blockable}};
 
-pub struct ElectronicCodeBook<W: io::Write, Block: Blockable, Encoder: AESEncoder<Block>> {
+pub struct ECBEncrypt<W: io::Write, Block: Blockable, Encoder: AESEncoder<Block>> {
     writer: W,
     key: Block,
     partial_block: [u8; 16],
@@ -10,7 +10,7 @@ pub struct ElectronicCodeBook<W: io::Write, Block: Blockable, Encoder: AESEncode
     encoder: PhantomData<Encoder>,
 }
 
-impl<W: io::Write, Block: Blockable, Encoder: AESEncoder<Block>> ElectronicCodeBook<W, Block, Encoder> {
+impl<W: io::Write, Block: Blockable, Encoder: AESEncoder<Block>> ECBEncrypt<W, Block, Encoder> {
     pub fn new(writer: W, key: Block) -> Self {
         Self {
             writer,
@@ -22,52 +22,31 @@ impl<W: io::Write, Block: Blockable, Encoder: AESEncoder<Block>> ElectronicCodeB
     }
 }
 
-impl<Encoder: AESEncoder<Block>, Block: Blockable, W: io::Write> BlockCipherEncoderMode<Encoder, Block, W> for ElectronicCodeBook<W, Block, Encoder> {
+impl<Encoder: AESEncoder<Block>, Block: Blockable, W: io::Write> BlockCipherEncoderMode<Encoder, Block, W> for ECBEncrypt<W, Block, Encoder> {
 
     fn write_bytes(&mut self, data: &[u8]) -> io::Result<usize> {
 
-        // partial + incoming is not a complete block
-        if data.len() + self.partial_len < 16 {
-            self.partial_block[self.partial_len..self.partial_len + data.len()]
-                .copy_from_slice(data);
 
-            return Ok(0);
-        }
+        let mut helper = PartialBlockHelper::new(
+            &mut self.partial_block,
+            &mut self.partial_len,
+            data
+        );
 
-        // we have a partial block and enough incoming data for atleast 1 block
-        let offset = if self.partial_len > 0 {
-            let to_take = 16 - self.partial_len;
-            println!("taking {to_take}");
-            let mut chunk = [0u8; 16];
-            chunk[0..self.partial_len].copy_from_slice(&self.partial_block[0..self.partial_len]);
-            chunk[self.partial_len..16].copy_from_slice(&data[0..to_take]);
-            
+        let mut written = 0;
+        while let Some(chunk) = helper.take() {
+            written += chunk.len();
             let encoded = Encoder::encrypt(Block::from_slice(&chunk), self.key);
 
             self.writer.write_all(&encoded.to_slice())?;
-            to_take
-        } else {
-            0
-        };
-
-        for chunk in data[offset..data.len()].chunks(16) {
-            let len = chunk.len();
-            println!("processing chunk len {len}");
-            if len != 16 {
-                self.partial_block[0..len].copy_from_slice(&chunk);
-                self.partial_len = len;
-                break;
-            }
-
-            let encoded = Encoder::encrypt(Block::from_slice(chunk.try_into().unwrap()), self.key);
-
-            self.writer.write_all(&encoded.to_slice())?;
         }
-        
-        Ok(data.len() + offset)
+
+        return Ok(written);
     }
 
     fn finalise(mut self) -> io::Result<usize> {
+
+        println!("finalising {}", self.partial_len);
 
         if self.partial_len == 0 {
             return Ok(0)
@@ -76,6 +55,7 @@ impl<Encoder: AESEncoder<Block>, Block: Blockable, W: io::Write> BlockCipherEnco
         let mut final_block = self.partial_block;
         // 0 pad
         final_block[self.partial_len..16].iter_mut().for_each(|b| *b = 0);
+        println!("padded final block {:02x?}", final_block);
 
         let encoded = Encoder::encrypt(Block::from_slice(&final_block), self.key);
 
@@ -84,5 +64,60 @@ impl<Encoder: AESEncoder<Block>, Block: Blockable, W: io::Write> BlockCipherEnco
 
 
         Ok(16)
+    }
+}
+
+pub struct ECBDecrypt<W: io::Write, Block: Blockable, Decoder: AESDecoder<Block>> {
+    writer: W,
+    key: Block,
+    partial_block: [u8; 16],
+    partial_len: usize,
+    encoder: PhantomData<Decoder>,
+}
+
+impl<W: io::Write, Block: Blockable, Decoder: AESDecoder<Block>> ECBDecrypt<W, Block, Decoder> {
+    pub fn new(writer: W, key: Block) -> Self {
+        Self {
+            writer,
+            key,
+            partial_block: [0; 16],
+            partial_len: 0,
+            encoder: PhantomData
+        }
+    }
+}
+
+impl<Decoder: AESDecoder<Block>, Block: Blockable, W: io::Write> BlockCipherDecoderMode<Decoder, Block, W> for ECBDecrypt<W, Block, Decoder> {
+
+    fn write_bytes(&mut self, data: &[u8]) -> io::Result<usize> {
+
+
+        let mut helper = PartialBlockHelper::new(
+            &mut self.partial_block,
+            &mut self.partial_len,
+            data
+        );
+
+        let mut written = 0;
+        while let Some(chunk) = helper.take() {
+            written += chunk.len();
+            let encoded = Decoder::decrypt(Block::from_slice(&chunk), self.key);
+
+            self.writer.write_all(&encoded.to_slice())?;
+        }
+
+        return Ok(written);
+    }
+
+    fn finalise(self) -> io::Result<usize> {
+
+        if self.partial_len == 0 {
+            return Ok(0)
+        }
+
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("Unexpected partial remaining block for ECB mode: {} bytes remaining", self.partial_len)
+        ));
     }
 }

@@ -8,3 +8,11 @@ where Encoder: AESEncoder<Block>, Block: Blockable, W: io::Write
     fn write_bytes(&mut self, data: &[u8]) -> io::Result<usize>;
     fn finalise(self) -> io::Result<usize>;
 }
+
+
+pub trait BlockCipherDecoderMode<Decoder, Block, W>
+where Decoder: AESDecoder<Block>, Block: Blockable, W: io::Write
+{
+    fn write_bytes(&mut self, data: &[u8]) -> io::Result<usize>;
+    fn finalise(self) -> io::Result<usize>;
+}

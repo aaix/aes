@@ -43,20 +43,20 @@ where Block: Blockable
 
         let first_rkey = keys[0];
         state = Self::do_first_round(plaintext, &first_rkey);
-        printblock!("first rkey", first_rkey);
-        printblock!("first round", state);
+        // printblock!("first rkey", first_rkey);
+        // printblock!("first round", state);
 
         for rkey in &keys[1..10] {
             state = Self::do_round(state, rkey);
-            printblock!("intermediate rkey", *rkey);
-            printblock!("intermediate round", state);
+            // printblock!("intermediate rkey", *rkey);
+            // printblock!("intermediate round", state);
 
         };
 
         let last_rkey = keys[10];
         state = Self::do_final_round(state, &last_rkey);
-        printblock!("final rkey", last_rkey);
-        printblock!("final round", state);
+        // printblock!("final rkey", last_rkey);
+        // printblock!("final round", state);
 
         state
 
@@ -83,20 +83,20 @@ where Block: Copy + Sized + BlockOp
 
         let first_rkey = keys[0];
         state = Self::do_first_round(ciphertext, &first_rkey);
-        printblock!("first rkey", first_rkey);
-        printblock!("first round", state);
+        // printblock!("first rkey", first_rkey);
+        // printblock!("first round", state);
 
         for rkey in &keys[1..10] {
             state = Self::do_round(state, rkey);
-            printblock!("intermediate rkey", *rkey);
-            printblock!("intermediate round", state);
+            // printblock!("intermediate rkey", *rkey);
+            // printblock!("intermediate round", state);
 
         };
 
         let last_rkey = keys[10];
         state = Self::do_final_round(state, &last_rkey);
-        printblock!("final rkey", last_rkey);
-        printblock!("final round", state);
+        // printblock!("final rkey", last_rkey);
+        // printblock!("final round", state);
 
         state
 
