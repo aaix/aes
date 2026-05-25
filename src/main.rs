@@ -1,8 +1,10 @@
 use std::arch::x86_64::*;
 
 use aes::hw::{HWAesDecoder, HWAesEncoder};
+use aes::modes::ecb::ElectronicCodeBook;
+use aes::modes::traits::BlockCipherEncoderMode;
 use aes::printblock;
-use aes::traits::{AESDecoder, AESEncoder, DisplayBlock};
+use aes::traits::{AESDecoder, AESEncoder, BlockOp};
 
 // https://legacy.cryptool.org/en/cto/aes-step-by-step
 
@@ -14,22 +16,18 @@ fn main() {
 
     printblock!("key", key);
 
-    let plaintext = [
-        'h', 'e', 'l', 'l', 'o', ' ', 'w', 'o', 'r', 'l', 'd', '!', '!', '!', '!', '!', 
-    ].map(|c| c as u8);
+    let plaintext = "hello world 😎😎😎 big john machine xd 123 xd";
+    println!("plaintext len {}", plaintext.len());
 
-    let state = unsafe {_mm_loadu_si128(plaintext.as_ptr() as *const __m128i)};
+    let mut ciphertext = Vec::new();
+    let mut encoder: ElectronicCodeBook<&mut Vec<u8>, __m128i, HWAesEncoder> = ElectronicCodeBook::new(&mut ciphertext, key);
 
-    printblock!("plaintext", plaintext);
+    encoder.write_bytes(plaintext.as_bytes()).unwrap();
+    println!("finalising");
+    encoder.finalise().unwrap();
 
-
-    let ciphertext = <HWAesEncoder as AESEncoder<__m128i>>::encrypt(state, key);
-
-    println!("");
-
-    let decoded = <HWAesDecoder as AESDecoder<__m128i>>::decrypt(ciphertext, key);
-
-    printblock!("decoded to", decoded);
+    println!("{:02x?}", ciphertext);
+    println!("ciphertext len {}", ciphertext.len());
 
 }
 

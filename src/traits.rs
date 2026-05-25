@@ -1,27 +1,31 @@
-use std::arch::x86_64::{__m128i};
-
 use crate::printblock;
 
-pub trait DisplayBlock {
+pub trait BlockOp {
     fn display(&self) -> u128;
+    fn from_slice(slice: &[u8; 16]) -> Self;
+    fn to_slice(self) -> [u8; 16];
 }
 
-
-impl DisplayBlock for __m128i {
-    fn display(&self) -> u128 {
-        unsafe {std::mem::transmute::<_, u128>(*self)}.to_be()
-    }
-}
-
-impl DisplayBlock for [u8; 16] {
+impl BlockOp for [u8; 16] {
     fn display(&self) -> u128 {
         u128::from_be_bytes(*self)
     }
+    fn from_slice(slice: &[u8; 16]) -> Self {
+        *slice
+    }
+    
+    fn to_slice(self) -> [u8; 16] {
+        self
+    }
 }
+
+pub trait Blockable: Copy + BlockOp {}
+impl<T: Copy + BlockOp> Blockable for T {}
+
 
 
 pub trait AESEncoder<Block>
-where Block: Copy + Sized + DisplayBlock
+where Block: Blockable
 {
 
     fn do_first_round(plaintext: Block, rkey: &Block) -> Block;
@@ -60,7 +64,7 @@ where Block: Copy + Sized + DisplayBlock
 }
 
 pub trait AESDecoder<Block>
-where Block: Copy + Sized + DisplayBlock
+where Block: Copy + Sized + BlockOp
 {
 
 

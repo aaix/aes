@@ -1,6 +1,25 @@
-use std::arch::{asm, x86_64::{__m128i, *}};
+use std::arch::{asm, x86_64::*};
 
-use crate::traits::{AESDecoder, AESEncoder};
+use crate::traits::{AESDecoder, AESEncoder, BlockOp};
+
+
+
+impl BlockOp for __m128i {
+    fn display(&self) -> u128 {
+        unsafe {std::mem::transmute::<_, u128>(*self)}.to_be()
+    }
+
+    fn from_slice(slice: &[u8; 16]) -> Self {
+        unsafe {_mm_loadu_si128(slice.as_ptr() as *const __m128i)}
+    }
+    
+    fn to_slice(self) -> [u8; 16] {
+        unsafe {std::mem::transmute(self)}
+    }
+    
+}
+
+
 
 pub struct HWAesEncoder {}
 
