@@ -99,7 +99,11 @@ impl<const SIZE: usize, W: io::Write, Block: Blockable<SIZE>, Decoder: AESDecode
     }
 }
 
-impl<const SIZE: usize, Decoder: AESDecoder<Block, SIZE>, Block: Blockable<SIZE>, W: io::Write, PaddingStrategy: Padding<SIZE, Block>> BlockCipherDecoderMode<SIZE, Decoder, Block, W, PaddingStrategy> for CBCDecrypt<SIZE, W, Block, Decoder, PaddingStrategy> {
+impl<const SIZE: usize, Decoder, Block, W, PaddingStrategy>
+    BlockCipherDecoderMode<SIZE, Decoder, Block, W, PaddingStrategy>
+for CBCDecrypt<SIZE, W, Block, Decoder, PaddingStrategy>
+where Decoder: AESDecoder<Block, SIZE>, Block: Blockable<SIZE>, W: io::Write, PaddingStrategy: Padding<SIZE, Block>
+{
 
     fn write_bytes(&mut self, data: &[u8]) -> io::Result<usize> {
 
