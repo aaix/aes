@@ -1,3 +1,6 @@
 pub mod traits;
-pub mod ecb;
 pub mod helpers;
+
+// modes
+pub mod ecb;
+pub mod cbc;

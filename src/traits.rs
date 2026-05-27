@@ -4,6 +4,7 @@ pub trait BlockOp {
     fn display(&self) -> u128;
     fn from_slice(slice: &[u8; 16]) -> Self;
     fn to_slice(self) -> [u8; 16];
+    fn xor(&self, other: &Self) -> Self;
 }
 
 impl BlockOp for [u8; 16] {
@@ -16,6 +17,10 @@ impl BlockOp for [u8; 16] {
     
     fn to_slice(self) -> [u8; 16] {
         self
+    }
+
+    fn xor(&self, other: &Self) -> Self {
+        u128::to_ne_bytes(u128::from_ne_bytes(*self) ^ u128::from_ne_bytes(*other))
     }
 }
 

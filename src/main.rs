@@ -1,7 +1,7 @@
 use std::arch::x86_64::*;
 
 use aes::hw::{HWAesDecoder, HWAesEncoder};
-use aes::modes::ecb::{ECBDecrypt, ECBEncrypt};
+use aes::modes::cbc::{CBCDecrypt, CBCEncrypt};
 use aes::modes::traits::{BlockCipherDecoderMode, BlockCipherEncoderMode};
 use aes::printblock;
 use aes::traits::{AESDecoder, AESEncoder, BlockOp};
@@ -12,7 +12,8 @@ fn main() {
 
     assert!(is_x86_feature_detected!("aes"));
 
-    let key = unsafe {_mm_set_epi32(5222,0,0,1)};
+    let key = unsafe {_mm_set_epi32(5222,15122,-8686,122225)};
+    let iv = unsafe {_mm_set_epi32(5, -12432, 42314, 111111)};
 
     printblock!("key", key);
 
@@ -22,7 +23,7 @@ fn main() {
     println!("plaintext is {:02x?}", plaintext.as_bytes());
 
     let mut ciphertext = Vec::new();
-    let mut encoder: ECBEncrypt<&mut Vec<u8>, __m128i, HWAesEncoder> = ECBEncrypt::new(&mut ciphertext, key);
+    let mut encoder: CBCEncrypt<&mut Vec<u8>, __m128i, HWAesEncoder> = CBCEncrypt::new(&mut ciphertext, key, iv);
 
     encoder.write_bytes(plaintext.as_bytes()).unwrap();
     encoder.write_bytes("sentence 2 xdd".as_bytes()).unwrap();
@@ -33,7 +34,7 @@ fn main() {
     println!("ciphertext len {}", ciphertext.len());
 
     let mut decoded = Vec::new();
-    let mut decoder: ECBDecrypt<&mut Vec<u8>, __m128i, HWAesDecoder> = ECBDecrypt::new(&mut decoded, key);
+    let mut decoder: CBCDecrypt<&mut Vec<u8>, __m128i, HWAesDecoder> = CBCDecrypt::new(&mut decoded, key, iv);
     decoder.write_bytes(&ciphertext).unwrap();
     decoder.finalise().unwrap();
 

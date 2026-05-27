@@ -16,6 +16,10 @@ impl BlockOp for __m128i {
     fn to_slice(self) -> [u8; 16] {
         unsafe {std::mem::transmute(self)}
     }
+
+    fn xor(&self, other: &Self) -> Self {
+        unsafe { _mm_xor_si128(*self, *other) }
+    }
     
 }
 

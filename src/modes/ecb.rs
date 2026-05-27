@@ -36,9 +36,9 @@ impl<Encoder: AESEncoder<Block>, Block: Blockable, W: io::Write> BlockCipherEnco
         let mut written = 0;
         while let Some(chunk) = helper.take() {
             written += chunk.len();
-            let encoded = Encoder::encrypt(Block::from_slice(&chunk), self.key);
+            let ciphertext = Encoder::encrypt(Block::from_slice(&chunk), self.key);
 
-            self.writer.write_all(&encoded.to_slice())?;
+            self.writer.write_all(&ciphertext.to_slice())?;
         }
 
         return Ok(written);
@@ -61,6 +61,7 @@ impl<Encoder: AESEncoder<Block>, Block: Blockable, W: io::Write> BlockCipherEnco
 
 
         self.writer.write_all(&encoded.to_slice())?;
+        self.writer.flush()?;
 
 
         Ok(16)
@@ -101,15 +102,16 @@ impl<Decoder: AESDecoder<Block>, Block: Blockable, W: io::Write> BlockCipherDeco
         let mut written = 0;
         while let Some(chunk) = helper.take() {
             written += chunk.len();
-            let encoded = Decoder::decrypt(Block::from_slice(&chunk), self.key);
+            let plaintext = Decoder::decrypt(Block::from_slice(&chunk), self.key);
 
-            self.writer.write_all(&encoded.to_slice())?;
+            self.writer.write_all(&plaintext.to_slice())?;
         }
 
         return Ok(written);
     }
 
-    fn finalise(self) -> io::Result<usize> {
+    fn finalise(mut self) -> io::Result<usize> {
+        self.writer.flush()?;
 
         if self.partial_len == 0 {
             return Ok(0)
