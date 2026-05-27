@@ -1,18 +1,19 @@
 use std::{io, marker::PhantomData};
 
-use crate::{modes::{helpers::PartialBlockHelper, traits::{BlockCipherDecoderMode, BlockCipherEncoderMode}}, traits::{AESDecoder, AESEncoder, BlockOp, Blockable}};
+use crate::{modes::{helpers::PartialBlockHelper, traits::{BlockCipherDecoderMode, BlockCipherEncoderMode}}, padding::traits::Padding, traits::{AESDecoder, AESEncoder, BlockOp, Blockable}};
 
-pub struct CBCEncrypt<W: io::Write, Block: Blockable, Encoder: AESEncoder<Block>> {
+pub struct CBCEncrypt<W: io::Write, Block: Blockable, Encoder: AESEncoder<Block>, PaddingStrategy> {
     writer: W,
     key: Block,
     partial_block: [u8; 16],
     partial_len: usize,
     encoder: PhantomData<Encoder>,
+    padding: PhantomData<PaddingStrategy>,
 
     last_ciphertext: [u8; 16],
 }
 
-impl<W: io::Write, Block: Blockable, Encoder: AESEncoder<Block>> CBCEncrypt<W, Block, Encoder> {
+impl<W: io::Write, Block: Blockable, Encoder: AESEncoder<Block>, PaddingStrategy: Padding<Block>> CBCEncrypt<W, Block, Encoder, PaddingStrategy> {
     pub fn new(writer: W, key: Block, iv: Block) -> Self {
         Self {
             writer,
@@ -20,13 +21,14 @@ impl<W: io::Write, Block: Blockable, Encoder: AESEncoder<Block>> CBCEncrypt<W, B
             partial_block: [0; 16],
             partial_len: 0,
             encoder: PhantomData,
+            padding: PhantomData,
 
             last_ciphertext: iv.to_slice(),
         }
     }
 }
 
-impl<Encoder: AESEncoder<Block>, Block: Blockable, W: io::Write> BlockCipherEncoderMode<Encoder, Block, W> for CBCEncrypt<W, Block, Encoder> {
+impl<Encoder: AESEncoder<Block>, Block: Blockable, W: io::Write, PaddingStrategy: Padding<Block>> BlockCipherEncoderMode<Encoder, Block, W, PaddingStrategy> for CBCEncrypt<W, Block, Encoder, PaddingStrategy> {
 
     fn write_bytes(&mut self, data: &[u8]) -> io::Result<usize> {
 
@@ -56,12 +58,10 @@ impl<Encoder: AESEncoder<Block>, Block: Blockable, W: io::Write> BlockCipherEnco
             return Ok(0)
         }
 
-        let mut final_block = self.partial_block;
+        let final_block = PaddingStrategy::pad_block(&self.partial_block[0..self.partial_len]);
 
-        final_block[self.partial_len..16].iter_mut().for_each(|b| *b = 0);
-        println!("padded final block {:02x?}", final_block);
 
-        let ciphertext = Encoder::encrypt(Block::from_slice(&final_block.xor(&self.last_ciphertext)), self.key).to_slice();
+        let ciphertext = Encoder::encrypt(final_block.xor(&Block::from_slice(&self.last_ciphertext)), self.key).to_slice();
 
 
 
@@ -73,17 +73,18 @@ impl<Encoder: AESEncoder<Block>, Block: Blockable, W: io::Write> BlockCipherEnco
     }
 }
 
-pub struct CBCDecrypt<W: io::Write, Block: Blockable, Decoder: AESDecoder<Block>> {
+pub struct CBCDecrypt<W: io::Write, Block: Blockable, Decoder: AESDecoder<Block>, PaddingStrategy> {
     writer: W,
     key: Block,
     partial_block: [u8; 16],
     partial_len: usize,
     encoder: PhantomData<Decoder>,
+    padding: PhantomData<PaddingStrategy>,
 
     last_ciphertext: [u8; 16],
 }
 
-impl<W: io::Write, Block: Blockable, Decoder: AESDecoder<Block>> CBCDecrypt<W, Block, Decoder> {
+impl<W: io::Write, Block: Blockable, Decoder: AESDecoder<Block>, PaddingStrategy: Padding<Block>> CBCDecrypt<W, Block, Decoder, PaddingStrategy> {
     pub fn new(writer: W, key: Block, iv: Block) -> Self {
         Self {
             writer,
@@ -91,13 +92,14 @@ impl<W: io::Write, Block: Blockable, Decoder: AESDecoder<Block>> CBCDecrypt<W, B
             partial_block: [0; 16],
             partial_len: 0,
             encoder: PhantomData,
+            padding: PhantomData,
 
             last_ciphertext: iv.to_slice(),
         }
     }
 }
 
-impl<Decoder: AESDecoder<Block>, Block: Blockable, W: io::Write> BlockCipherDecoderMode<Decoder, Block, W> for CBCDecrypt<W, Block, Decoder> {
+impl<Decoder: AESDecoder<Block>, Block: Blockable, W: io::Write, PaddingStrategy: Padding<Block>> BlockCipherDecoderMode<Decoder, Block, W, PaddingStrategy> for CBCDecrypt<W, Block, Decoder, PaddingStrategy> {
 
     fn write_bytes(&mut self, data: &[u8]) -> io::Result<usize> {
 

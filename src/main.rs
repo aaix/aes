@@ -3,6 +3,7 @@ use std::arch::x86_64::*;
 use aes::hw::{HWAesDecoder, HWAesEncoder};
 use aes::modes::cbc::{CBCDecrypt, CBCEncrypt};
 use aes::modes::traits::{BlockCipherDecoderMode, BlockCipherEncoderMode};
+use aes::padding::pkcs7::PCKCS7Padding;
 use aes::printblock;
 use aes::traits::{AESDecoder, AESEncoder, BlockOp};
 
@@ -16,6 +17,7 @@ fn main() {
     let iv = unsafe {_mm_set_epi32(5, -12432, 42314, 111111)};
 
     printblock!("key", key);
+    printblock!("iv", iv);
 
     let plaintext = "hello world 😎😎😎 big john machine xd 123 xd";
     println!("as string: '{}'", plaintext);
@@ -23,10 +25,10 @@ fn main() {
     println!("plaintext is {:02x?}", plaintext.as_bytes());
 
     let mut ciphertext = Vec::new();
-    let mut encoder: CBCEncrypt<&mut Vec<u8>, __m128i, HWAesEncoder> = CBCEncrypt::new(&mut ciphertext, key, iv);
+    let mut encoder: CBCEncrypt<&mut Vec<u8>, __m128i, HWAesEncoder, PCKCS7Padding> = CBCEncrypt::new(&mut ciphertext, key, iv);
 
     encoder.write_bytes(plaintext.as_bytes()).unwrap();
-    encoder.write_bytes("sentence 2 xdd".as_bytes()).unwrap();
+    encoder.write_bytes("sentence 2 xdd 1".as_bytes()).unwrap();
     println!("finalising");
     encoder.finalise().unwrap();
 
@@ -34,7 +36,7 @@ fn main() {
     println!("ciphertext len {}", ciphertext.len());
 
     let mut decoded = Vec::new();
-    let mut decoder: CBCDecrypt<&mut Vec<u8>, __m128i, HWAesDecoder> = CBCDecrypt::new(&mut decoded, key, iv);
+    let mut decoder: CBCDecrypt<&mut Vec<u8>, __m128i, HWAesDecoder, PCKCS7Padding> = CBCDecrypt::new(&mut decoded, key, iv);
     decoder.write_bytes(&ciphertext).unwrap();
     decoder.finalise().unwrap();
 

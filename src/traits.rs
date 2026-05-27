@@ -5,6 +5,7 @@ pub trait BlockOp {
     fn from_slice(slice: &[u8; 16]) -> Self;
     fn to_slice(self) -> [u8; 16];
     fn xor(&self, other: &Self) -> Self;
+    fn size() -> usize;
 }
 
 impl BlockOp for [u8; 16] {
@@ -22,6 +23,8 @@ impl BlockOp for [u8; 16] {
     fn xor(&self, other: &Self) -> Self {
         u128::to_ne_bytes(u128::from_ne_bytes(*self) ^ u128::from_ne_bytes(*other))
     }
+
+    fn size() -> usize {16}
 }
 
 pub trait Blockable: Copy + BlockOp {}

@@ -20,6 +20,10 @@ impl BlockOp for __m128i {
     fn xor(&self, other: &Self) -> Self {
         unsafe { _mm_xor_si128(*self, *other) }
     }
+
+    fn size() -> usize {
+        16
+    }
     
 }
 
