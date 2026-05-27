@@ -4,9 +4,9 @@ use crate::traits::{AESDecoder, AESEncoder, BlockOp};
 
 
 
-impl BlockOp for __m128i {
-    fn display(&self) -> u128 {
-        unsafe {std::mem::transmute::<_, u128>(*self)}.to_be()
+impl BlockOp<16> for __m128i {
+    fn display(&self) -> String {
+        format!("{:032x}", unsafe {std::mem::transmute::<_, u128>(*self)}.to_be())
     }
 
     fn from_slice(slice: &[u8; 16]) -> Self {
@@ -62,7 +62,7 @@ fn expand_key_128<const RCON: i32>(prev_key: __m128i) -> __m128i {
 
 }
 
-impl AESEncoder<__m128i> for HWAesEncoder {
+impl AESEncoder<__m128i, 16> for HWAesEncoder {
     
     fn do_round(mut state: __m128i, rkey: &__m128i) -> __m128i {
         unsafe {asm!(
@@ -117,7 +117,7 @@ impl AESEncoder<__m128i> for HWAesEncoder {
 
 pub struct HWAesDecoder {}
 
-impl AESDecoder<__m128i> for HWAesDecoder {
+impl AESDecoder<__m128i, 16> for HWAesDecoder {
 
     fn do_round(mut state: __m128i, rkey: &__m128i) -> __m128i {
         unsafe {asm!(

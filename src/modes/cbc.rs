@@ -2,23 +2,23 @@ use std::{io, marker::PhantomData};
 
 use crate::{modes::{helpers::PartialBlockHelper, traits::{BlockCipherDecoderMode, BlockCipherEncoderMode}}, padding::traits::Padding, traits::{AESDecoder, AESEncoder, BlockOp, Blockable}};
 
-pub struct CBCEncrypt<W: io::Write, Block: Blockable, Encoder: AESEncoder<Block>, PaddingStrategy> {
+pub struct CBCEncrypt<const SIZE: usize, W: io::Write, Block: Blockable<SIZE>, Encoder: AESEncoder<Block, SIZE>, PaddingStrategy> {
     writer: W,
     key: Block,
-    partial_block: [u8; 16],
+    partial_block: [u8; SIZE],
     partial_len: usize,
     encoder: PhantomData<Encoder>,
     padding: PhantomData<PaddingStrategy>,
 
-    last_ciphertext: [u8; 16],
+    last_ciphertext: [u8; SIZE],
 }
 
-impl<W: io::Write, Block: Blockable, Encoder: AESEncoder<Block>, PaddingStrategy: Padding<Block>> CBCEncrypt<W, Block, Encoder, PaddingStrategy> {
+impl<const SIZE: usize, W: io::Write, Block: Blockable<SIZE>, Encoder: AESEncoder<Block, SIZE>, PaddingStrategy: Padding<SIZE, Block>> CBCEncrypt<SIZE, W, Block, Encoder, PaddingStrategy> {
     pub fn new(writer: W, key: Block, iv: Block) -> Self {
         Self {
             writer,
             key,
-            partial_block: [0; 16],
+            partial_block: [0; SIZE],
             partial_len: 0,
             encoder: PhantomData,
             padding: PhantomData,
@@ -28,7 +28,7 @@ impl<W: io::Write, Block: Blockable, Encoder: AESEncoder<Block>, PaddingStrategy
     }
 }
 
-impl<Encoder: AESEncoder<Block>, Block: Blockable, W: io::Write, PaddingStrategy: Padding<Block>> BlockCipherEncoderMode<Encoder, Block, W, PaddingStrategy> for CBCEncrypt<W, Block, Encoder, PaddingStrategy> {
+impl<const SIZE: usize, Encoder: AESEncoder<Block, SIZE>, Block: Blockable<SIZE>, W: io::Write, PaddingStrategy: Padding<SIZE, Block>> BlockCipherEncoderMode<SIZE, Encoder, Block, W, PaddingStrategy> for CBCEncrypt<SIZE, W, Block, Encoder, PaddingStrategy> {
 
     fn write_bytes(&mut self, data: &[u8]) -> io::Result<usize> {
 
@@ -42,7 +42,7 @@ impl<Encoder: AESEncoder<Block>, Block: Blockable, W: io::Write, PaddingStrategy
         let mut written = 0;
         while let Some(chunk) = helper.take() {
             written += chunk.len();
-            let block: [u8; 16] = self.last_ciphertext.xor(chunk);
+            let block: [u8; SIZE] = self.last_ciphertext.xor(chunk);
 
             self.last_ciphertext = Encoder::encrypt(Block::from_slice(&block), self.key).to_slice();
 
@@ -69,27 +69,27 @@ impl<Encoder: AESEncoder<Block>, Block: Blockable, W: io::Write, PaddingStrategy
         self.writer.flush()?;
 
 
-        Ok(16)
+        Ok(SIZE)
     }
 }
 
-pub struct CBCDecrypt<W: io::Write, Block: Blockable, Decoder: AESDecoder<Block>, PaddingStrategy> {
+pub struct CBCDecrypt<const SIZE: usize, W: io::Write, Block: Blockable<SIZE>, Decoder: AESDecoder<Block, SIZE>, PaddingStrategy> {
     writer: W,
     key: Block,
-    partial_block: [u8; 16],
+    partial_block: [u8; SIZE],
     partial_len: usize,
     encoder: PhantomData<Decoder>,
     padding: PhantomData<PaddingStrategy>,
 
-    last_ciphertext: [u8; 16],
+    last_ciphertext: [u8; SIZE],
 }
 
-impl<W: io::Write, Block: Blockable, Decoder: AESDecoder<Block>, PaddingStrategy: Padding<Block>> CBCDecrypt<W, Block, Decoder, PaddingStrategy> {
+impl<const SIZE: usize, W: io::Write, Block: Blockable<SIZE>, Decoder: AESDecoder<Block, SIZE>, PaddingStrategy: Padding<SIZE, Block>> CBCDecrypt<SIZE, W, Block, Decoder, PaddingStrategy> {
     pub fn new(writer: W, key: Block, iv: Block) -> Self {
         Self {
             writer,
             key,
-            partial_block: [0; 16],
+            partial_block: [0; SIZE],
             partial_len: 0,
             encoder: PhantomData,
             padding: PhantomData,
@@ -99,7 +99,7 @@ impl<W: io::Write, Block: Blockable, Decoder: AESDecoder<Block>, PaddingStrategy
     }
 }
 
-impl<Decoder: AESDecoder<Block>, Block: Blockable, W: io::Write, PaddingStrategy: Padding<Block>> BlockCipherDecoderMode<Decoder, Block, W, PaddingStrategy> for CBCDecrypt<W, Block, Decoder, PaddingStrategy> {
+impl<const SIZE: usize, Decoder: AESDecoder<Block, SIZE>, Block: Blockable<SIZE>, W: io::Write, PaddingStrategy: Padding<SIZE, Block>> BlockCipherDecoderMode<SIZE, Decoder, Block, W, PaddingStrategy> for CBCDecrypt<SIZE, W, Block, Decoder, PaddingStrategy> {
 
     fn write_bytes(&mut self, data: &[u8]) -> io::Result<usize> {
 
@@ -116,7 +116,7 @@ impl<Decoder: AESDecoder<Block>, Block: Blockable, W: io::Write, PaddingStrategy
 
             let plaintext = Decoder::decrypt(Block::from_slice(&chunk), self.key).to_slice();
 
-            let xored: [u8; 16] = self.last_ciphertext.xor(&plaintext);
+            let xored: [u8; SIZE] = self.last_ciphertext.xor(&plaintext);
             self.last_ciphertext.copy_from_slice(chunk);
 
 

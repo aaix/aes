@@ -2,21 +2,21 @@ use std::{io, marker::PhantomData};
 
 use crate::{modes::{helpers::PartialBlockHelper, traits::{BlockCipherDecoderMode, BlockCipherEncoderMode}}, padding::traits::Padding, traits::{AESDecoder, AESEncoder, Blockable}};
 
-pub struct ECBEncrypt<W: io::Write, Block: Blockable, Encoder: AESEncoder<Block>, PaddingStrategy: Padding<Block>> {
+pub struct ECBEncrypt<const SIZE: usize, W: io::Write, Block: Blockable<SIZE>, Encoder: AESEncoder<Block, SIZE>, PaddingStrategy: Padding<SIZE, Block>> {
     writer: W,
     key: Block,
-    partial_block: [u8; 16],
+    partial_block: [u8; SIZE],
     partial_len: usize,
     encoder: PhantomData<Encoder>,
     padding: PhantomData<PaddingStrategy>,
 }
 
-impl<W: io::Write, Block: Blockable, Encoder: AESEncoder<Block>, PaddingStrategy: Padding<Block>> ECBEncrypt<W, Block, Encoder, PaddingStrategy> {
+impl<const SIZE: usize, W: io::Write, Block: Blockable<SIZE>, Encoder: AESEncoder<Block, SIZE>, PaddingStrategy: Padding<SIZE, Block>> ECBEncrypt<SIZE, W, Block, Encoder, PaddingStrategy> {
     pub fn new(writer: W, key: Block) -> Self {
         Self {
             writer,
             key,
-            partial_block: [0; 16],
+            partial_block: [0; SIZE],
             partial_len: 0,
             encoder: PhantomData,
             padding: PhantomData,
@@ -24,7 +24,7 @@ impl<W: io::Write, Block: Blockable, Encoder: AESEncoder<Block>, PaddingStrategy
     }
 }
 
-impl<Encoder: AESEncoder<Block>, Block: Blockable, W: io::Write, PaddingStrategy: Padding<Block>> BlockCipherEncoderMode<Encoder, Block, W, PaddingStrategy> for ECBEncrypt<W, Block, Encoder, PaddingStrategy> {
+impl<const SIZE: usize, Encoder: AESEncoder<Block, SIZE>, Block: Blockable<SIZE>, W: io::Write, PaddingStrategy: Padding<SIZE, Block>> BlockCipherEncoderMode<SIZE, Encoder, Block, W, PaddingStrategy> for ECBEncrypt<SIZE, W, Block, Encoder, PaddingStrategy> {
 
     fn write_bytes(&mut self, data: &[u8]) -> io::Result<usize> {
 
@@ -63,25 +63,25 @@ impl<Encoder: AESEncoder<Block>, Block: Blockable, W: io::Write, PaddingStrategy
         self.writer.flush()?;
 
 
-        Ok(16)
+        Ok(SIZE)
     }
 }
 
-pub struct ECBDecrypt<W: io::Write, Block: Blockable, Decoder: AESDecoder<Block>, PaddingStrategy> {
+pub struct ECBDecrypt<const SIZE: usize, W: io::Write, Block: Blockable<SIZE>, Decoder: AESDecoder<Block, SIZE>, PaddingStrategy> {
     writer: W,
     key: Block,
-    partial_block: [u8; 16],
+    partial_block: [u8; SIZE],
     partial_len: usize,
     encoder: PhantomData<Decoder>,
     padding: PhantomData<PaddingStrategy>,
 }
 
-impl<W: io::Write, Block: Blockable, Decoder: AESDecoder<Block>, PaddingStrategy: Padding<Block>> ECBDecrypt<W, Block, Decoder, PaddingStrategy> {
+impl<const SIZE: usize, W: io::Write, Block: Blockable<SIZE>, Decoder: AESDecoder<Block, SIZE>, PaddingStrategy: Padding<SIZE, Block>> ECBDecrypt<SIZE, W, Block, Decoder, PaddingStrategy> {
     pub fn new(writer: W, key: Block) -> Self {
         Self {
             writer,
             key,
-            partial_block: [0; 16],
+            partial_block: [0; SIZE],
             partial_len: 0,
             encoder: PhantomData,
             padding: PhantomData,
@@ -89,7 +89,7 @@ impl<W: io::Write, Block: Blockable, Decoder: AESDecoder<Block>, PaddingStrategy
     }
 }
 
-impl<Decoder: AESDecoder<Block>, Block: Blockable, W: io::Write, PaddingStrategy: Padding<Block>> BlockCipherDecoderMode<Decoder, Block, W, PaddingStrategy> for ECBDecrypt<W, Block, Decoder, PaddingStrategy> {
+impl<const SIZE: usize, Decoder: AESDecoder<Block, SIZE>, Block: Blockable<SIZE>, W: io::Write, PaddingStrategy: Padding<SIZE, Block>> BlockCipherDecoderMode<SIZE, Decoder, Block, W, PaddingStrategy> for ECBDecrypt<SIZE, W, Block, Decoder, PaddingStrategy> {
 
     fn write_bytes(&mut self, data: &[u8]) -> io::Result<usize> {
 

@@ -2,16 +2,16 @@ use std::io;
 
 use crate::{padding::traits::Padding, traits::{AESDecoder, AESEncoder, Blockable}};
 
-pub trait BlockCipherEncoderMode<Encoder, Block, W, PaddingStrategy>
-where Encoder: AESEncoder<Block>, Block: Blockable, W: io::Write, PaddingStrategy: Padding<Block>
+pub trait BlockCipherEncoderMode<const SIZE: usize, Encoder, Block, W, PaddingStrategy>
+where Encoder: AESEncoder<Block, SIZE>, Block: Blockable<SIZE>, W: io::Write, PaddingStrategy: Padding<SIZE, Block>
 {
     fn write_bytes(&mut self, data: &[u8]) -> io::Result<usize>;
     fn finalise(self) -> io::Result<usize>;
 }
 
 
-pub trait BlockCipherDecoderMode<Decoder, Block, W, PaddingStrategy>
-where Decoder: AESDecoder<Block>, Block: Blockable, W: io::Write, PaddingStrategy: Padding<Block>
+pub trait BlockCipherDecoderMode<const SIZE: usize, Decoder, Block, W, PaddingStrategy>
+where Decoder: AESDecoder<Block, SIZE>, Block: Blockable<SIZE>, W: io::Write, PaddingStrategy: Padding<SIZE, Block>
 {
     fn write_bytes(&mut self, data: &[u8]) -> io::Result<usize>;
     fn finalise(self) -> io::Result<usize>;

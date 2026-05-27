@@ -1,39 +1,39 @@
 use crate::printblock;
 
-pub trait BlockOp {
-    fn display(&self) -> u128;
-    fn from_slice(slice: &[u8; 16]) -> Self;
-    fn to_slice(self) -> [u8; 16];
+pub trait BlockOp<const SIZE: usize> {
+    fn display(&self) -> String;
+    fn from_slice(slice: &[u8; SIZE]) -> Self;
+    fn to_slice(self) -> [u8; SIZE];
     fn xor(&self, other: &Self) -> Self;
     fn size() -> usize;
 }
 
-impl BlockOp for [u8; 16] {
-    fn display(&self) -> u128 {
-        u128::from_be_bytes(*self)
+impl<const SIZE: usize> BlockOp<SIZE> for [u8; SIZE] {
+    fn display(&self) -> String {
+        self.iter().map(|b| format!("{:02x}", b)).collect()
     }
-    fn from_slice(slice: &[u8; 16]) -> Self {
+    fn from_slice(slice: &[u8; SIZE]) -> Self {
         *slice
     }
     
-    fn to_slice(self) -> [u8; 16] {
+    fn to_slice(self) -> [u8; SIZE] {
         self
     }
 
     fn xor(&self, other: &Self) -> Self {
-        u128::to_ne_bytes(u128::from_ne_bytes(*self) ^ u128::from_ne_bytes(*other))
+        std::array::from_fn(|i| self[i] ^ other[i])
     }
 
-    fn size() -> usize {16}
+    fn size() -> usize {SIZE}
 }
 
-pub trait Blockable: Copy + BlockOp {}
-impl<T: Copy + BlockOp> Blockable for T {}
+pub trait Blockable<const SIZE: usize>: Copy + BlockOp<SIZE> {}
+impl<const SIZE: usize, T: Copy + BlockOp<SIZE>> Blockable<SIZE> for T {}
 
 
 
-pub trait AESEncoder<Block>
-where Block: Blockable
+pub trait AESEncoder<Block, const SIZE: usize>
+where Block: Blockable<SIZE>
 {
 
     fn do_first_round(plaintext: Block, rkey: &Block) -> Block;
@@ -71,8 +71,8 @@ where Block: Blockable
     }
 }
 
-pub trait AESDecoder<Block>
-where Block: Copy + Sized + BlockOp
+pub trait AESDecoder<Block, const SIZE: usize>
+where Block: Copy + Sized + BlockOp<SIZE>
 {
 
 
