@@ -9,7 +9,7 @@ fn padding_oracle(guess: &[u8], decoded: &mut Vec<u8>, key: __m128i, iv: __m128i
     decoder.finalise().is_ok()
 }
 
-pub fn padding_oracle_attack() {
+pub fn test_padding_oracle_attack() {
     let key_idk = unsafe {_mm_set_epi32(5222,15122,-8686,122225)};
     let iv_i_stole = unsafe {_mm_set_epi32(5, -12432, 42314, 111111)};
 
@@ -27,36 +27,75 @@ pub fn padding_oracle_attack() {
         padding_oracle(guess, &mut scratch, key_idk, iv_i_stole)
     };
 
-    let p2 = do_padding_oracle_attack(c1, c2, oracle);
-    let p1 = do_padding_oracle_attack(iv_i_stole.to_slice(), c1, oracle);
+    let mut  total_attempts = 0;
+
+    let (p2, block_attempts) = do_padding_oracle_attack(c1, c2, oracle);
+    total_attempts += block_attempts;
+    let (p1, block_attempts) = do_padding_oracle_attack(iv_i_stole.to_slice(), c1, oracle);
+    total_attempts += block_attempts;
 
     plaintext[0..16].copy_from_slice(&p1);
     plaintext[16..32].copy_from_slice(&p2);
 
+    println!("used {total_attempts} attempts");
     println!("recovered {:02x?}", plaintext);
     // println!("as string {}", String::from_utf8_lossy(&plaintext))
+}
 
+pub fn padding_oracle_attack_helper<const SIZE: usize, Oracle>(ciphertext: &[u8], iv: &[u8; SIZE], oracle: Oracle) -> Vec<u8>
+where Oracle: Fn(&[u8]) -> bool
+{
+    assert!(ciphertext.len() % SIZE == 0);
+
+    let mut plaintext = vec![0; ciphertext.len()];
+    let mut attempts = 0;
+
+    let blocks = ciphertext.as_chunks::<SIZE>().0;
+
+    for (i, pair) in blocks.windows(2).enumerate().rev() {
+        println!("block {} {} {:02x?}", i*SIZE, (i+1)*SIZE, pair);
+        
+        let c1 = &pair[0];
+        let c2 = &pair[1];
+
+        let (p2, block_attempts) = do_padding_oracle_attack(*c1, *c2, &oracle);
+        attempts += block_attempts;
+
+        plaintext[((i+1)*SIZE)..((i+2)*SIZE)].copy_from_slice(&p2);
+
+    }
+
+    let (p2, block_attempts) = do_padding_oracle_attack(*iv, ciphertext[0..SIZE].try_into().unwrap(), &oracle);
+    attempts += block_attempts;
+    plaintext[0..SIZE].copy_from_slice(&p2);
+
+
+    println!("recovered plaintext in {attempts} attempts");
+    println!("oracled plaintext {:02x?}", plaintext);
+    
+    plaintext
 
 }
 
 
-pub fn do_padding_oracle_attack<Oracle>(c1: [u8; 16], c2: [u8; 16], oracle: Oracle) -> [u8; 16]
+pub fn do_padding_oracle_attack<const SIZE: usize, Oracle>(c1: [u8; SIZE], c2: [u8; SIZE], oracle: Oracle) -> ([u8; SIZE], u64)
 where Oracle: Fn(&[u8]) -> bool
 {
+
+    let mut attempts = 0;
 
     let mut c1_prime = c1;
 
     println!("decrypting {:02x?}", c2);
 
-    let mut p2: [u8; 16] = [0u8; 16];
+    let mut p2: [u8; SIZE] = [0u8; SIZE];
+    let mut intermediate: [u8; SIZE] = [0; SIZE];
 
-    let mut intermediate: [u8; 16] = [0; 16];
-
-    for index in (0..16).rev() {
+    for index in (0..SIZE).rev() {
         println!("recovering {index}");
-        let padding_bytes = (16 - index) as u8;
+        let padding_bytes = (SIZE - index) as u8;
 
-        for i in (index + 1)..16 {
+        for i in (index + 1)..SIZE {
             // make recovered bytes decrypt to the desired padding value
             c1_prime[i] = intermediate[i] ^ padding_bytes;
         }
@@ -66,10 +105,11 @@ where Oracle: Fn(&[u8]) -> bool
         for _ in 0..=255u8 {
             c1_prime[index] = c1_prime[index].wrapping_add(1);
             let mut guess = [0u8; 32];
-            guess[0..16].copy_from_slice(&c1_prime);
-            guess[16..32].copy_from_slice(&c2);
+            guess[0..SIZE].copy_from_slice(&c1_prime);
+            guess[SIZE..(2*SIZE)].copy_from_slice(&c2);
 
             let padding_ok = oracle(&guess);
+            attempts += 1;
             
             if !padding_ok {continue;}
             intermediate[index] = c1_prime[index] ^ padding_bytes;
@@ -87,6 +127,6 @@ where Oracle: Fn(&[u8]) -> bool
     println!("c1_prime      {:02x?}", c1_prime);
     println!("p2            {:02x?}", p2);
     
-    p2
+    (p2, attempts)
 
 }
