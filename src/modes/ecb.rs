@@ -74,6 +74,7 @@ pub struct ECBDecrypt<const SIZE: usize, W: io::Write, Block: Blockable<SIZE>, D
     partial_len: usize,
     encoder: PhantomData<Decoder>,
     padding: PhantomData<PaddingStrategy>,
+    last_full_block: Option<[u8; SIZE]>,
 }
 
 impl<const SIZE: usize, W: io::Write, Block: Blockable<SIZE>, Decoder: AESDecoder<Block, SIZE>, PaddingStrategy: Padding<SIZE, Block>> ECBDecrypt<SIZE, W, Block, Decoder, PaddingStrategy> {
@@ -85,6 +86,7 @@ impl<const SIZE: usize, W: io::Write, Block: Blockable<SIZE>, Decoder: AESDecode
             partial_len: 0,
             encoder: PhantomData,
             padding: PhantomData,
+            last_full_block: None,
         }
     }
 }
@@ -105,7 +107,11 @@ impl<const SIZE: usize, Decoder: AESDecoder<Block, SIZE>, Block: Blockable<SIZE>
             written += chunk.len();
             let plaintext = Decoder::decrypt(Block::from_slice(&chunk), self.key);
 
-            self.writer.write_all(&plaintext.to_slice())?;
+            if let Some(last_full_block) = self.last_full_block {
+                self.writer.write_all(&last_full_block)?;
+            }
+            self.last_full_block = Some(plaintext.to_slice());
+            
         }
 
         return Ok(written);
@@ -119,7 +125,7 @@ impl<const SIZE: usize, Decoder: AESDecoder<Block, SIZE>, Block: Blockable<SIZE>
         }
 
         return Err(io::Error::new(
-            io::ErrorKind::InvalidData,
+            io::ErrorKind::UnexpectedEof,
             format!("Unexpected partial remaining block for ECB mode: {} bytes remaining", self.partial_len)
         ));
     }

@@ -1,4 +1,4 @@
-use crate::{padding::traits::Padding, traits::Blockable};
+use crate::{padding::traits::{Padding, PaddingError}, traits::Blockable};
 
 pub struct PCKCS7Padding<const SIZE: usize> {}
 
@@ -11,4 +11,16 @@ impl<const SIZE: usize, Block: Blockable<SIZE>> Padding<SIZE, Block> for PCKCS7P
         slice[0..plaintext_len].copy_from_slice(plaintext);
         Block::from_slice(&slice)
     }
+    
+    fn remove_padding(last_block: &[u8; SIZE]) -> Result<usize, super::traits::PaddingError> {
+        let padding_len = last_block[SIZE - 1];
+        let plaintext_len =  SIZE - padding_len as usize;
+
+        // add a padding oracle
+        if !last_block[plaintext_len..SIZE].iter().all(|v| *v == padding_len) {
+            return Err(PaddingError::InvalidPadding("Padding is not of expected length"))
+        }
+        Ok(plaintext_len)
+    }
+    
 }

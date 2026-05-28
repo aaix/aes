@@ -80,6 +80,7 @@ pub struct CBCDecrypt<const SIZE: usize, W: io::Write, Block: Blockable<SIZE>, D
     partial_len: usize,
     encoder: PhantomData<Decoder>,
     padding: PhantomData<PaddingStrategy>,
+    last_full_block: Option<[u8; SIZE]>,
 
     last_ciphertext: [u8; SIZE],
 }
@@ -93,6 +94,7 @@ impl<const SIZE: usize, W: io::Write, Block: Blockable<SIZE>, Decoder: AESDecode
             partial_len: 0,
             encoder: PhantomData,
             padding: PhantomData,
+            last_full_block: None,
 
             last_ciphertext: iv.to_slice(),
         }
@@ -123,8 +125,10 @@ where Decoder: AESDecoder<Block, SIZE>, Block: Blockable<SIZE>, W: io::Write, Pa
             let xored: [u8; SIZE] = self.last_ciphertext.xor(&plaintext);
             self.last_ciphertext.copy_from_slice(chunk);
 
-
-            self.writer.write_all(&xored)?;
+            if let Some(last_full_block) = self.last_full_block {
+                self.writer.write_all(&last_full_block)?;
+            }
+            self.last_full_block = Some(xored.to_slice());
         }
 
         return Ok(written);
@@ -134,13 +138,22 @@ where Decoder: AESDecoder<Block, SIZE>, Block: Blockable<SIZE>, W: io::Write, Pa
 
         self.writer.flush()?;
 
-        if self.partial_len == 0 {
-            return Ok(0)
+        if self.partial_len != 0 {
+            return Err(io::Error::new(
+                io::ErrorKind::UnexpectedEof,
+                format!("Unexpected partial remaining block for CBC mode: {} bytes remaining", self.partial_len)
+            ));
         }
 
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            format!("Unexpected partial remaining block for CBC mode: {} bytes remaining", self.partial_len)
-        ));
+
+        if let Some(last_full_block) = self.last_full_block {
+            let plaintext_len = PaddingStrategy::remove_padding(&last_full_block)?;
+            self.writer.write_all(&last_full_block[0..plaintext_len])?;
+            return Ok(plaintext_len);
+        }
+
+        Ok(0)
+
+
     }
 }

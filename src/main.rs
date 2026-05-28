@@ -4,6 +4,7 @@ use aes::hw::{HWAesDecoder, HWAesEncoder};
 use aes::modes::cbc::{CBCDecrypt, CBCEncrypt};
 use aes::modes::traits::{BlockCipherDecoderMode, BlockCipherEncoderMode};
 use aes::padding::pkcs7::PCKCS7Padding;
+use aes::padding::zeropad::ZeroPadding;
 use aes::printblock;
 use aes::traits::{AESDecoder, AESEncoder, BlockOp};
 
