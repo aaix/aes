@@ -12,10 +12,10 @@ impl<const SIZE: usize, Block: Blockable<SIZE>> Padding<SIZE, Block> for ZeroPad
     }
     
     fn remove_padding(last_block: &[u8; SIZE]) -> Result<usize, PaddingError> {
-        let mut i = SIZE - 1;
-        while last_block[i] == 0 {
+        let mut i = SIZE;
+        while i >= 1 && last_block[i - 1] == 0 {
             i -= 1;
         }
-        Ok(i + 1)
+        Ok(i)
     }
 }

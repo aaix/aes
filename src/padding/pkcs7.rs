@@ -14,12 +14,22 @@ impl<const SIZE: usize, Block: Blockable<SIZE>> Padding<SIZE, Block> for PCKCS7P
     
     fn remove_padding(last_block: &[u8; SIZE]) -> Result<usize, super::traits::PaddingError> {
         let padding_len = last_block[SIZE - 1];
+
+        if padding_len == 0 {
+            return Err(PaddingError::InvalidPadding("Zero padding is not allowed"))
+        }
+
+        if padding_len as usize > SIZE {
+            return Err(PaddingError::InvalidPadding("Padding len greater than block len"))
+        }
+
         let plaintext_len =  SIZE - padding_len as usize;
 
         // add a padding oracle
         if !last_block[plaintext_len..SIZE].iter().all(|v| *v == padding_len) {
             return Err(PaddingError::InvalidPadding("Padding is not of expected length"))
         }
+
         Ok(plaintext_len)
     }
     

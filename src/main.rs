@@ -14,13 +14,17 @@ fn main() {
 
     assert!(is_x86_feature_detected!("aes"));
 
+    aes::attacks::padding_oracle::padding_oracle_attack();
+
+    return;
+
     let key = unsafe {_mm_set_epi32(5222,15122,-8686,122225)};
     let iv = unsafe {_mm_set_epi32(5, -12432, 42314, 111111)};
 
     printblock!("key", key);
     printblock!("iv", iv);
 
-    let plaintext = "hello world 😎😎😎 big john machine xd 123 xd";
+    let plaintext = "hi 123 xd 12456789123";
     println!("as string: '{}'", plaintext);
     println!("plaintext len {}", plaintext.as_bytes().len());
     println!("plaintext is {:02x?}", plaintext.as_bytes());
@@ -29,7 +33,7 @@ fn main() {
     let mut encoder: CBCEncrypt<16, &mut Vec<u8>, __m128i, HWAesEncoder, PCKCS7Padding<16>> = CBCEncrypt::new(&mut ciphertext, key, iv);
 
     encoder.write_bytes(plaintext.as_bytes()).unwrap();
-    encoder.write_bytes("sentence 2 xdd 1".as_bytes()).unwrap();
+    //encoder.write_bytes("sentence 2 xdd 12345678912345".as_bytes()).unwrap();
     println!("finalising");
     encoder.finalise().unwrap();
 

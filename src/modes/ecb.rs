@@ -118,15 +118,24 @@ impl<const SIZE: usize, Decoder: AESDecoder<Block, SIZE>, Block: Blockable<SIZE>
     }
 
     fn finalise(mut self) -> io::Result<usize> {
+
         self.writer.flush()?;
 
-        if self.partial_len == 0 {
-            return Ok(0)
+        if self.partial_len != 0 {
+            return Err(io::Error::new(
+                io::ErrorKind::UnexpectedEof,
+                format!("Unexpected partial remaining block for ECB mode: {} bytes remaining", self.partial_len)
+            ));
         }
 
-        return Err(io::Error::new(
-            io::ErrorKind::UnexpectedEof,
-            format!("Unexpected partial remaining block for ECB mode: {} bytes remaining", self.partial_len)
-        ));
+
+        if let Some(last_full_block) = self.last_full_block {
+            let plaintext_len = PaddingStrategy::remove_padding(&last_full_block)?;
+            self.writer.write_all(&last_full_block[0..plaintext_len])?;
+            self.writer.flush()?;
+            return Ok(plaintext_len);
+        }
+
+        Ok(0)
     }
 }

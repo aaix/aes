@@ -54,16 +54,10 @@ impl<const SIZE: usize, Encoder: AESEncoder<Block, SIZE>, Block: Blockable<SIZE>
 
     fn finalise(mut self) -> io::Result<usize> {
 
-        if self.partial_len == 0 {
-            return Ok(0)
-        }
-
         let final_block = PaddingStrategy::pad_block(&self.partial_block[0..self.partial_len]);
 
 
         let ciphertext = Encoder::encrypt(final_block.xor(&Block::from_slice(&self.last_ciphertext)), self.key).to_slice();
-
-
 
         self.writer.write_all(&ciphertext.to_slice())?;
         self.writer.flush()?;
@@ -149,6 +143,7 @@ where Decoder: AESDecoder<Block, SIZE>, Block: Blockable<SIZE>, W: io::Write, Pa
         if let Some(last_full_block) = self.last_full_block {
             let plaintext_len = PaddingStrategy::remove_padding(&last_full_block)?;
             self.writer.write_all(&last_full_block[0..plaintext_len])?;
+            self.writer.flush()?;
             return Ok(plaintext_len);
         }
 
