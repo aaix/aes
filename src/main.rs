@@ -2,7 +2,8 @@ use std::arch::x86_64::*;
 
 use aes::hw::{HWAesDecoder, HWAesEncoder};
 use aes::modes::cbc::{CBCDecrypt, CBCEncrypt};
-use aes::modes::traits::{BlockCipherDecoderMode, BlockCipherEncoderMode};
+use aes::modes::ctr::CTREncrypt;
+use aes::modes::traits::{BlockCipherDecoderMode, BlockCipherEncoderMode, StreamCipherEncoderMode};
 use aes::padding::pkcs7::PCKCS7Padding;
 use aes::padding::zeropad::ZeroPadding;
 use aes::printblock;
@@ -29,7 +30,7 @@ fn main() {
     println!("plaintext is {:02x?}", plaintext.as_bytes());
 
     let mut ciphertext = Vec::new();
-    let mut encoder: CBCEncrypt<16, &mut Vec<u8>, __m128i, HWAesEncoder, PCKCS7Padding<16>> = CBCEncrypt::new(&mut ciphertext, key, iv);
+    let mut encoder: CTREncrypt<16, &mut Vec<u8>, __m128i, HWAesEncoder> = CTREncrypt::new(&mut ciphertext, key, iv);
 
     encoder.write_bytes(plaintext.as_bytes()).unwrap();
     encoder.write_bytes("sentence 2 xdd 12345678912345".as_bytes()).unwrap();
@@ -39,17 +40,17 @@ fn main() {
     println!("ciphertext is {:02x?}", ciphertext);
     println!("ciphertext len {}", ciphertext.len());
 
-    println!("decoding using padding oracle");
-    let oracle = |d: &[u8]| {
-        let mut scratch = Vec::new();
-        let mut oracle_decrypt: CBCDecrypt<16, &mut Vec<u8>, __m128i, HWAesDecoder, PCKCS7Padding<16>> = CBCDecrypt::new(&mut scratch, key, iv);
-        oracle_decrypt.write_bytes(&d).unwrap();
-        oracle_decrypt.finalise().is_ok()
-    };
-    aes::attacks::padding_oracle::padding_oracle_attack_helper(&ciphertext, &iv.to_slice(), oracle);
+    // println!("decoding using padding oracle");
+    // let oracle = |d: &[u8]| {
+    //     let mut scratch = Vec::new();
+    //     let mut oracle_decrypt: CBCDecrypt<16, &mut Vec<u8>, __m128i, HWAesDecoder, PCKCS7Padding<16>> = CBCDecrypt::new(&mut scratch, key, iv);
+    //     oracle_decrypt.write_bytes(&d).unwrap();
+    //     oracle_decrypt.finalise().is_ok()
+    // };
+    // aes::attacks::padding_oracle::padding_oracle_attack_helper(&ciphertext, &iv.to_slice(), oracle);
 
     let mut decoded = Vec::new();
-    let mut decoder: CBCDecrypt<16, &mut Vec<u8>, __m128i, HWAesDecoder, PCKCS7Padding<16>> = CBCDecrypt::new(&mut decoded, key, iv);
+    let mut decoder: CTREncrypt<16, &mut Vec<u8>, __m128i, HWAesEncoder> = CTREncrypt::new(&mut decoded, key, iv);
     decoder.write_bytes(&ciphertext).unwrap();
     decoder.finalise().unwrap();
 
